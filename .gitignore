@@ -1,0 +1,62 @@
+# Build artifacts
+build/
+out/
+*.o
+*.obj
+*.so
+*.dll
+*.exp
+*.lib
+*.pdb
+*.ilk
+
+# libajantv2 cloned inside the tree (CI does this; locally it lives next to it)
+external/
+
+# duplex-probe reports when run with --out reports, and a session's ZIP
+reports/
+session-*.zip
+
+# Local working notes, not part of the repository
+*BRIEFING*.md
+notes/
+
+# build.cmd: the ZIP for the PC with the card, and the log of the last build
+dist/
+build-log.txt
+
+# Visual Studio / MSBuild
+.vs/
+*.user
+*.suo
+*.vcxproj.user
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# JetBrains
+.idea/
+cmake-build-*/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CMakeUserPresets.json
+compile_commands.json
+
+# Local environment overrides for the build
+local.cmake
+.env
+
+# Release packages
+*.zip
+
+# OS
+Thumbs.db
+.DS_Store

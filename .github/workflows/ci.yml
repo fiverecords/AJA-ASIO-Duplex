@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (c) 2026 Joaquin Villodre
+#
+# CI for AJA-Duplex-ASIO.
+#
+# One Windows job: MSVC is the real target (ASIO only exists on Windows), so
+# this is where a build break shows up before it reaches the KONA X machine.
+# It builds the way a developer's PC does, with build.cmd (Windows
+# PowerShell 5.1 and the Visual Studio the runner has), so the script is
+# tested too:
+#   1. Restore libajantv2 from the cache, keyed on the tag the project pins;
+#      on a miss build.cmd clones it, and the cache keeps it for next time.
+#   2. build.cmd: configure, build Release, run the unit tests, run the
+#      driver DLL on the simulated card with duplex-asiotest, pack
+#      dist\AJA-Duplex-ASIO-<version>-win64.zip.
+#   3. Keep that ZIP and build-log.txt as the run's artifacts, so the
+#      driver and the probe can be downloaded from the run without
+#      building them.
+#
+# There is no Linux job: what can be tested off Windows is tested on the
+# developer's side, and the hardware steps run on the KONA X.
+
+name: CI
+
+on:
+  push:
+    branches: [ '**' ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows-build-and-test:
+    runs-on: windows-latest
+
+    env:
+      AJA_SDK_TAG: ntv2_18_0_0
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache AJA SDK
+        uses: actions/cache@v4
+        with:
+          path: external/libajantv2
+          # Keyed on the tag so a tag bump invalidates the cache cleanly.
+          key: ${{ runner.os }}-aja-${{ env.AJA_SDK_TAG }}
+
+      - name: Build, test and pack (build.cmd)
+        shell: cmd
+        run: build.cmd -Workspace "%GITHUB_WORKSPACE%\external"
+
+      - name: Keep the driver and the probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: AJA-Duplex-ASIO-win64
+          path: dist/*.zip
+          if-no-files-found: error
+
+      - name: Keep the build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build-log.txt
+          if-no-files-found: ignore
