@@ -52,6 +52,22 @@ TEST_CASE(TextFormat, MegabytesWholeAndFractional)
     EXPECT_EQ(text::megabytes(4177920u), std::string("3.98 MB"));   // 4 MB - 16 KB
 }
 
+TEST_CASE(TextFormat, MillisecondsOfSamplesAt48kHz)
+{
+    EXPECT_EQ(text::milliseconds(0), std::string("0.0 ms"));
+    EXPECT_EQ(text::milliseconds(48), std::string("1.0 ms"));
+    EXPECT_EQ(text::milliseconds(64), std::string("1.3 ms"));
+    EXPECT_EQ(text::milliseconds(128), std::string("2.7 ms"));
+    EXPECT_EQ(text::milliseconds(208), std::string("4.3 ms"));
+    EXPECT_EQ(text::milliseconds(256), std::string("5.3 ms"));
+    EXPECT_EQ(text::milliseconds(592), std::string("12.3 ms"));
+    EXPECT_EQ(text::milliseconds(720), std::string("15.0 ms"));
+    EXPECT_EQ(text::milliseconds(130), std::string("2.7 ms"));
+    EXPECT_EQ(text::milliseconds(1024), std::string("21.3 ms"));
+    EXPECT_EQ(text::milliseconds(2048), std::string("42.7 ms"));
+    EXPECT_EQ(text::milliseconds(48000), std::string("1000.0 ms"));
+}
+
 TEST_CASE(TextFormat, ChannelSetAsRanges)
 {
     EXPECT_EQ(text::channelSet(0, 16), std::string("none"));

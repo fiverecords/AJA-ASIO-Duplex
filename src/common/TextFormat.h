@@ -31,6 +31,11 @@ std::string fourcc(std::uint32_t code);
 /// A byte count in MB (2^20 bytes): 8388608 -> "8 MB", 4177920 -> "3.98 MB".
 std::string megabytes(std::uint64_t bytes);
 
+/// Samples at 48 kHz (the only rate there is) as milliseconds, to the
+/// nearest tenth, for people to read: 128 -> "2.7 ms", 256 -> "5.3 ms",
+/// 720 -> "15.0 ms", 0 -> "0.0 ms".
+std::string milliseconds(std::uint64_t samples);
+
 /// "yes" or "no".
 const char* yesNo(bool value);
 

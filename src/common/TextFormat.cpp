@@ -71,6 +71,14 @@ std::string megabytes(std::uint64_t bytes)
     return buf;
 }
 
+std::string milliseconds(std::uint64_t samples)
+{
+    // In tenths, from whole numbers (no locale, so always a point), to the
+    // nearest: 48 samples are ten tenths.
+    const std::uint64_t tenths = (samples * 10 + 24) / 48;
+    return std::to_string(tenths / 10) + "." + std::to_string(tenths % 10) + " ms";
+}
+
 const char* yesNo(bool value)
 {
     return value ? "yes" : "no";

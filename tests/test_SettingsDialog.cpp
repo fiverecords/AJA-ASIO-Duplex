@@ -188,9 +188,10 @@ TEST_CASE(SettingsDialog, TheCardsLatencyFollowsTheInput)
                      reinterpret_cast<LPARAM>(GetDlgItem(dialog, kInputCombo)));
     };
     EXPECT_EQ(shown(), 208u);
-    wchar_t note[200] = {};
-    GetDlgItemTextW(dialog, kLatencyNote, note, 200);
-    EXPECT_CONTAINS(narrow(note), "208 out with the analog input");
+    wchar_t note[256] = {};
+    GetDlgItemTextW(dialog, kLatencyNote, note, 256);
+    EXPECT_CONTAINS(narrow(note), "208 out with the analog input (4.3 ms)");
+    EXPECT_CONTAINS(narrow(note), "in samples");
 
     choose(1);   // AES
     EXPECT_EQ(shown(), 130u);
@@ -209,6 +210,47 @@ TEST_CASE(SettingsDialog, TheCardsLatencyFollowsTheInput)
     EXPECT_TRUE(content.saved);
     EXPECT_TRUE(content.settings.input == InputChoice::Aes);
     EXPECT_EQ(content.settings.outputLatencyFrames, 215u);
+}
+
+TEST_CASE(SettingsDialog, SpeaksOfSamplesWithTheirMilliseconds)
+{
+    DialogContent content;   // the defaults: 128, guard 256
+    HWND dialog = open(content);
+    if (dialog == nullptr)
+        return;
+    wchar_t text[160] = {};
+    // The buffer sizes offered, each with what it lasts.
+    const int chosen = static_cast<int>(SendDlgItemMessageW(dialog, kBufferCombo, CB_GETCURSEL, 0, 0));
+    ASSERT_TRUE(chosen >= 0);
+    SendDlgItemMessageW(dialog, kBufferCombo, CB_GETLBTEXT, static_cast<WPARAM>(chosen),
+                        reinterpret_cast<LPARAM>(text));
+    EXPECT_EQ(narrow(text), std::string("128 samples (2.7 ms)"));
+    SendDlgItemMessageW(dialog, kBufferCombo, CB_GETLBTEXT, 5, reinterpret_cast<LPARAM>(text));
+    EXPECT_EQ(narrow(text), std::string("2048 samples (42.7 ms)"));
+
+    // The guard's, following what is typed in its box.
+    GetDlgItemTextW(dialog, kGuardText, text, 160);
+    EXPECT_EQ(narrow(text), std::string("samples (5.3 ms) kept ahead beyond a block"));
+    const auto type = [dialog](const wchar_t* value) {
+        SetDlgItemTextW(dialog, kGuardEdit, value);
+        SendMessageW(dialog, WM_COMMAND, MAKEWPARAM(kGuardEdit, EN_CHANGE),
+                     reinterpret_cast<LPARAM>(GetDlgItem(dialog, kGuardEdit)));
+    };
+    type(L"32");
+    GetDlgItemTextW(dialog, kGuardText, text, 160);
+    EXPECT_EQ(narrow(text), std::string("samples (0.7 ms) kept ahead beyond a block"));
+    type(L"5000");   // out of range: says what it can be
+    GetDlgItemTextW(dialog, kGuardText, text, 160);
+    EXPECT_EQ(narrow(text), std::string("samples, 0 to 1024, kept ahead beyond a block"));
+    type(L"");
+    GetDlgItemTextW(dialog, kGuardText, text, 160);
+    EXPECT_EQ(narrow(text), std::string("samples, 0 to 1024, kept ahead beyond a block"));
+
+    // And what OK says when the box is wrong.
+    SendMessageW(dialog, WM_COMMAND, IDOK, 0);
+    EXPECT_FALSE(content.saved);
+    EXPECT_CONTAINS(narrow(content.error), "number of samples from 0 to 1024");
+    SendMessageW(dialog, WM_COMMAND, IDCANCEL, 0);
 }
 
 TEST_CASE(SettingsDialog, SaysWhichVersionWhoseAndWhereTheProjectLives)

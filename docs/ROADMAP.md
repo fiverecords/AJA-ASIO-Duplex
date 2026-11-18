@@ -60,6 +60,11 @@ same evening (the fifth session):
 - The settings dialog says which version it is, its date and whose, with
   a button to the repository.
 
+1.0.1 (2026-11-18) adds what using it in vMix asked for: vMix has no
+ASIO settings button, so the settings open from the Start menu too ("AJA
+Duplex ASIO Settings"), and the dialog says samples, with milliseconds,
+where it said frames. The audio is 1.0.0's.
+
 Still open, for the versions to come:
 
 - On the card: hours in Resolume with AJA Input capturing (ten minutes

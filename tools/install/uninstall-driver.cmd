@@ -3,8 +3,9 @@ rem SPDX-License-Identifier: GPL-3.0-or-later
 rem Copyright (c) 2026 Joaquin Villodre
 rem
 rem Takes AJA Duplex ASIO away: its registration, the copy that
-rem install-driver.cmd put in "Program Files\AJA Duplex ASIO", and what
-rem versions up to 0.1.19 registered for their simulated driver. The
+rem install-driver.cmd put in "Program Files\AJA Duplex ASIO" with the
+rem settings program and its Start menu entry, and what versions up to
+rem 0.1.19 registered for their simulated driver. The
 rem settings under HKEY_CURRENT_USER\Software\AJA Duplex ASIO and the
 rem driver's log are left alone. Close every host first.
 rem Needs an administrator prompt: right-click, Run as administrator.
@@ -24,8 +25,15 @@ set "folder=%ProgramW6432%"
 if not defined folder set "folder=%ProgramFiles%"
 set "folder=%folder%\AJA Duplex ASIO"
 set "target=%folder%\AJADuplexASIO.dll"
+set "settings=%folder%\AJADuplexASIOSettings.exe"
+set "menu=%ProgramData%\Microsoft\Windows\Start Menu\Programs\AJA Duplex ASIO Settings.lnk"
 set "dll=%target%"
 if not exist "%dll%" set "dll=%~dp0AJADuplexASIO.dll"
+
+rem The settings in the Start menu: taken away by the program that put them
+rem there, and by name, should that program be gone.
+if exist "%settings%" "%settings%" --remove-shortcut
+if exist "%menu%" del /f /q "%menu%" >nul 2>&1
 
 rem The DLL takes away its own registration and the former simulated
 rem driver's with it.
@@ -41,6 +49,8 @@ del /f /q "%target%" >nul 2>&1
 if exist "%target%" goto inuse
 
 :removed
+if exist "%settings%" del /f /q "%settings%" >nul 2>&1
+if exist "%settings%" goto settingsopen
 if exist "%folder%\LICENSE.txt" del /f /q "%folder%\LICENSE.txt" >nul 2>&1
 if exist "%folder%\THIRD_PARTY_NOTICES.md" del /f /q "%folder%\THIRD_PARTY_NOTICES.md" >nul 2>&1
 if exist "%folder%\" rmdir "%folder%" >nul 2>&1
@@ -56,6 +66,14 @@ exit /b 1
 :inuse
 echo AJA Duplex ASIO is no longer registered, but this file could not be deleted:
 echo %target%
-echo A host still has it open. Close every host and run uninstall-driver.cmd again.
+echo A host still has it open, or AJA Duplex ASIO Settings does. Close them all
+echo and run uninstall-driver.cmd again.
+pause
+exit /b 1
+
+:settingsopen
+echo AJA Duplex ASIO is no longer installed, but this file could not be deleted:
+echo %settings%
+echo AJA Duplex ASIO Settings is still open: close it and run uninstall-driver.cmd again.
 pause
 exit /b 1

@@ -6,6 +6,47 @@ the first version published. The ones before it were numbered by the
 phases of [docs/ROADMAP.md](docs/ROADMAP.md): 0.0.x is phase 0 (the
 measurement tool) and 0.1.x phase 1 (the driver).
 
+## 1.0.1 - 2026-11-18
+
+The settings, for hosts with no settings button of their own, and in
+samples, as hosts and people say, where they said frames. Nothing in the
+audio changes: it plays as 1.0.0 does.
+
+### Added
+- **AJA Duplex ASIO Settings** (`AJADuplexASIOSettings.exe`): the driver's
+  settings without a host, for those with no ASIO settings button (vMix
+  has none). It asks the installed driver for its own dialog the way a
+  host does, through COM, without opening the card, so it can be open
+  while a host has the driver. Its "Now" box says so, and which program
+  has the driver open, if one has ("Open now in vMix64.exe (process
+  8768)"): that one takes what is saved once it is closed and opened
+  again, which for vMix is when it starts. After OK a message says the
+  same. A second start brings the first one's dialog to the front.
+  `install-driver.cmd` copies it beside the driver in Program Files and
+  adds it to every user's Start menu; `uninstall-driver.cmd` takes both
+  away, the entry also by name should the program be gone. The ZIP has
+  it beside the DLL. Until now the settings of a host with no button
+  were set with `reg add` or from another host.
+
+### Changed
+- The settings dialog speaks of samples, with what they are in
+  milliseconds: the buffer sizes ("128 samples (2.7 ms)"), the guard,
+  whose text follows what is typed in its box ("samples (5.3 ms) kept
+  ahead beyond a block"), the card's latencies and their note, and the
+  "Now" box ("latencies reported: in 128 samples (2.7 ms), out 592
+  samples (12.3 ms)"). README.md and DRIVER.md say samples too. The log,
+  `duplex-asiotest` and `duplex-probe` keep frames, ASIO's word for the
+  same thing.
+- The buffer size offered first says that a host may pick another: vMix
+  always asks for 1024 samples (21.3 ms), whatever the driver offers, as
+  every run on the card showed. DRIVER.md says so.
+- The log's `panel:` line says when the driver was never opened (the
+  settings program), instead of "on another thread".
+
+Unit tests: 304 cases (323 under Wine). Built with GCC, Clang, MinGW and
+Visual Studio; the settings program and both install scripts ran under
+Wine (the dialog, its "Now" box and the Start menu entry).
+
 ## 1.0.0 - 2026-11-11
 
 The first version published (https://github.com/fiverecords/AJA-ASIO-Duplex),

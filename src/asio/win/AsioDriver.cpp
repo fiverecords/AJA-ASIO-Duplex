@@ -10,6 +10,7 @@
 #include "asio/win/InstanceLock.h"
 #include "asio/win/RegistryStore.h"
 #include "common/Log.h"
+#include "common/TextFormat.h"
 #include "ui/SettingsDialog.h"
 #include "platform/Realtime.h"
 
@@ -65,6 +66,14 @@ std::string thisProcess()
     for (const wchar_t c : name)
         narrow += c < 128 ? static_cast<char>(c) : '?';
     return narrow + " (process " + std::to_string(GetCurrentProcessId()) + ")";
+}
+
+/// A count of samples (frames, in ASIO's words) as people read it: "592
+/// samples (12.3 ms)".
+std::string samples(long count)
+{
+    const std::uint64_t n = count > 0 ? static_cast<std::uint64_t>(count) : 0;
+    return std::to_string(n) + " samples (" + text::milliseconds(n) + ")";
 }
 
 } // namespace
@@ -252,6 +261,9 @@ ASIOError AsioDriver::disposeBuffers() { return core_->disposeBuffers(); }
 
 ASIOError AsioDriver::controlPanel()
 {
+    RegistryStore store(HKEY_CURRENT_USER, kSettingsKey);
+    const DriverSettings stored = loadDriverSettings(store);   // what the next open uses
+
     // What the driver is doing, for the dialog's read-only box.
     const std::string version = core_->driverName() + " " + AJADUPLEX_VERSION_STRING;
     std::string status = version;
@@ -265,14 +277,14 @@ ASIOError AsioDriver::controlPanel()
         status += "Open: " + std::to_string(core_->channels().inputs.size()) + " inputs (" +
                   describeInput(core_->settings()) + "), " + std::to_string(core_->channels().outputs.size()) +
                   " outputs (" + describeOutputs(core_->settings()) + "); latencies reported: in " +
-                  std::to_string(inputLatency) + ", out " + std::to_string(outputLatency) + " frames.\r\n";
+                  samples(inputLatency) + ", out " + samples(outputLatency) + ".\r\n";
         if (!core_->sdiNote().empty())
             status += core_->sdiNote() + "\r\n";
         if (core_->running())
             status += "Running.\r\n";
         const engine::EngineStats s = core_->stats();
         status += "This run: " + std::to_string(s.blocks) + " blocks, " + std::to_string(s.lateOutputs) +
-                  " late outputs (" + std::to_string(s.droppedOutputFrames) + " frames dropped), " +
+                  " late outputs (" + std::to_string(s.droppedOutputFrames) + " samples dropped), " +
                   std::to_string(s.inputOverruns) + " overruns, " + std::to_string(s.stalls) + " stalls, " +
                   std::to_string(s.outputMoves) + " output moves, " + std::to_string(s.dmaErrors) +
                   " DMA errors (" + std::to_string(s.dmaRecovered) + " more recovered).\r\n";
@@ -298,13 +310,28 @@ ASIOError AsioDriver::controlPanel()
     {
         status += "Not open: " + (lockError_.empty() ? core_->errorMessage() : lockError_) + "\r\n";
     }
+    else
+    {
+        // Asked for the settings without opening the driver: from
+        // AJADuplexASIOSettings.exe, for a host with no settings button of
+        // its own, or by a host before it opened the driver. What is saved
+        // is for the next open, in this program or in the one that has the
+        // driver now.
+        status += "Not open in this program. The settings are kept for this Windows user: each program takes "
+                  "them when it opens the driver.\r\n";
+        std::string holder;
+        if (!simulated_ && InstanceLock::heldBy(stored.card, stored.audioSystem, holder))
+            status += "Open now in " + holder + ": it takes them when it opens the driver again (close it and "
+                      "open it again).\r\n";
+        else if (!simulated_)
+            status += "No program has it open now.\r\n";
+    }
 
     const std::wstring log = logPath(simulated_);
     const std::size_t slash = log.find_last_of(L'\\');
     ui::DialogContent content;
     content.title = widen(core_->driverName());
-    RegistryStore store(HKEY_CURRENT_USER, kSettingsKey);
-    content.settings = loadDriverSettings(store);   // what is stored, which is what the next open uses
+    content.settings = stored;
     content.latenciesFromCard = simulated_;
     content.status = widen(status) + L"Log: " + log;
     content.logFolder = slash == std::wstring::npos ? std::wstring() : log.substr(0, slash);
@@ -313,7 +340,10 @@ ASIOError AsioDriver::controlPanel()
     // Over the window the user clicked in when that is this thread's: hosts
     // differ in what they give init, and in which thread calls this.
     const HWND owner = ui::chooseDialogOwner(window_);
-    log_->linef("panel: on %s thread, %s", GetCurrentThreadId() == initThread_ ? "init's" : "another",
+    log_->linef("panel: %s, %s",
+                initThread_ == 0                       ? "with the driver never opened (outside a host)"
+                : GetCurrentThreadId() == initThread_ ? "on init's thread"
+                                                        : "on another thread",
                 owner == nullptr     ? "on its own (no window of this thread to go over)"
                 : owner == window_   ? "over the window init was given"
                                      : "over the window the user clicked in");
@@ -329,11 +359,24 @@ ASIOError AsioDriver::controlPanel()
                     content.title.c_str(), MB_OK | MB_ICONWARNING | MB_SETFOREGROUND);
         return ASE_OK;
     }
-    if (core_->settingsChanged(content.settings) == DriverCore::SettingsApplied::NextOpen)
-        MessageBoxW(owner,
-                    L"Saved. They take effect the next time the host opens the driver (or resets it from its "
-                    L"audio settings).",
-                    content.title.c_str(), MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND);
+    if (core_->settingsChanged(content.settings) != DriverCore::SettingsApplied::NextOpen)
+        return ASE_OK;
+    std::wstring said = L"Saved. They take effect the next time the host opens the driver (or resets it from "
+                        L"its audio settings).";
+    if (!core_->initialized())
+    {
+        // Not open here: the program that has it, if one has, is the one
+        // that waits for them (the lock is named as that program opened it,
+        // with the settings stored before these).
+        std::string holder;
+        if (!simulated_ && InstanceLock::heldBy(stored.card, stored.audioSystem, holder))
+            said = L"Saved. " + widen(holder) + L" has the driver open: close it and open it again to use them.";
+        else
+            said = L"Saved. The next program to open the driver takes them.";
+        const std::string where = holder.empty() ? std::string("no program has the driver open") : "open in " + holder;
+        log_->linef("panel: saved outside a host; %s", where.c_str());
+    }
+    MessageBoxW(owner, said.c_str(), content.title.c_str(), MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND);
     return ASE_OK;
 }
 

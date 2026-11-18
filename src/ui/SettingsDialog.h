@@ -7,9 +7,12 @@
  *
  * Built in code from an in-memory dialog template, so there is no resource
  * file to compile: the input, the SDI and HDMI outputs that play too, the
- * Xpand's analog level, the buffer size offered first, the guard, aggressive mode, Keep my routing, OEM task
- * mode, the card's latencies, the card and the audio system, and a
- * read-only box with what the driver is doing. OK checks every field
+ * Xpand's analog level, the buffer size offered first, the guard,
+ * aggressive mode, Keep my routing, OEM task mode, the card's latencies,
+ * the card and the audio system, and a read-only box with what the driver
+ * is doing. Sizes and latencies are in samples, as hosts and people say
+ * (frames, in ASIO's words and the log's: one sample of every channel),
+ * with what they are in milliseconds beside them. OK checks every field
  * and keeps the dialog open, saying which one is wrong, until they all are
  * right. Saving them, and telling the host, is the caller's part. Under
  * the buttons: which version this is, of when and whose, and the project's
@@ -99,6 +102,7 @@ enum DialogControl : int
     kHdmiOutCheck,
     kAboutText,        ///< DialogContent::about
     kHomepageButton,   ///< DialogContent::homepage, without its "https://"
+    kGuardText,        ///< what the guard box holds, in milliseconds: follows the box
 };
 
 } // namespace ajaduplex::ui

@@ -1,42 +1,55 @@
 # AJA Duplex ASIO - the driver
 
 The ASIO driver, on the audio engine that phase 0 measures (phase 1 of
-the roadmap: 0.1.x, and 1.0.0, the first version published).
+the roadmap: 0.1.x, then 1.0.0, the first version published, and 1.0.1).
 
-**State in 1.0.0.** Up to 0.1.22 the driver was built with Visual Studio
+Sizes and latencies here are in samples, as hosts and the settings dialog
+say: one sample of every channel, 48 to a millisecond at the card's 48
+kHz. ASIO calls that a frame, and so do the log and the console tools
+(`duplex-asiotest`, `duplex-probe`): where this file quotes them, it says
+frames.
+
+**State in 1.0.1.** Up to 0.1.22 the driver was built with Visual Studio
 2022 and run on the KONA X with the Xpand, in Resolume and in vMix
-(2026-11-10 and 2026-11-11): at the defaults it played and recorded for
-up to ten minutes at a time, AJA Input holding the card beside it,
-without a late output or a DMA error; its round trip was measured (720
-frames, 208 of them the card's and its converters'); and the next program
-took the card over after one ended by force, with no restart. The engine
-under it ran an hour clean at N = 128 with the driver's guard on each
-path, AES and analog (phase 0's exit test, 2026-11-11). 1.0.0 adds two
-things to that: the latencies it reports include the card's own share as
-measured there, with nothing to set, and a takeover leaves the audio
-system as the program that was ended had found it. It was built and run
-on the card the same evening: two minutes in Resolume without a late
-output, round trips of 718 to 727 frames with 720 reported, and audio
-system 2 as it was before after each of two forced closes. Not seen on
-the card yet: hours in Resolume with AJA Input capturing, and the SDI
-and HDMI inputs and outputs. [CARD_SESSION.md](CARD_SESSION.md) is the
-list of what was run, to run it again.
+(2026-11-10 and 2026-11-11): at the defaults it played and recorded for up
+to ten minutes at a time, AJA Input holding the card beside it, without a
+late output or a DMA error; its round trip was measured (720 samples, 208
+of them the card's and its converters'); and the next program took the
+card over after one ended by force, with no restart. The engine under it
+ran an hour clean at N = 128 with the driver's guard on each path, AES and
+analog (phase 0's exit test, 2026-11-11). 1.0.0 adds two things to that:
+the latencies it reports include the card's own share as measured there,
+with nothing to set, and a takeover leaves the audio system as the program
+that was ended had found it. It was built and run on the card the same
+evening: two minutes in Resolume without a late output, round trips of 718
+to 727 samples with 720 reported, and audio system 2 as it was before
+after each of two forced closes. 1.0.1 changes the settings only, not the
+audio: a program that opens them for hosts with no settings button of
+their own, vMix among them ("Settings", below), and samples with their
+milliseconds where the dialog said frames. 1.0.0 has since worked for
+several hours in vMix. Not seen on the card yet: hours in Resolume with
+AJA Input capturing, and the SDI and HDMI inputs and outputs.
+[CARD_SESSION.md](CARD_SESSION.md) is the list of what was run, to run it
+again.
 
 ## Installing
 
 `AJA-Duplex-ASIO-<version>-win64.zip`, from the repository's releases or
 from `build.cmd` (which leaves it in `dist\`; on the PC that built it, the
 folder of that name beside the ZIP has the same files), has the driver,
-`AJADuplexASIO.dll`, and two scripts:
+`AJADuplexASIO.dll`, its settings program, `AJADuplexASIOSettings.exe`,
+and two scripts:
 
 1. Unzip it anywhere you can write to, for example `C:\AJA-Duplex-ASIO`:
    `duplex-probe` writes its reports beside it (under Program Files that
    would need administrator rights).
 2. Close every host and right-click `install-driver.cmd` there, **Run as
    administrator**. It copies the driver to
-   `C:\Program Files\AJA Duplex ASIO` and registers that copy. (The copy
-   of the script in the source tree, `tools\install`, has no DLL beside
-   it: it says so and stops.)
+   `C:\Program Files\AJA Duplex ASIO` and registers that copy, and puts
+   the settings program beside it and in every user's Start menu, as
+   **AJA Duplex ASIO Settings** (since 1.0.1). (The copy of the script in
+   the source tree, `tools\install`, has no DLL beside it: it says so and
+   stops.)
 
 Hosts then list one driver, **AJA Duplex ASIO**: the KONA X with the
 Xpand. They load it from Program Files, so the folder of the ZIP can be
@@ -81,9 +94,9 @@ registered, and `install-driver.cmd` takes away what those versions
 registered for the other.
 
 `uninstall-driver.cmd` (also as administrator, with every host closed)
-takes away the registration and the copy in Program Files, whichever
-folder it is run from, even with no DLL left anywhere; the settings and
-the log stay.
+takes away the registration, the copy in Program Files with the settings
+program, and its Start menu entry, whichever folder it is run from, even
+with no DLL left anywhere; the settings and the log stay.
 
 ## Trying it without the card
 
@@ -288,8 +301,13 @@ sets no mark.
 **vMix** opens one ASIO driver once, for its outputs and its inputs alike:
 to have the card both ways, add it as an audio input ("AJA Duplex ASIO" in
 Add Input, Audio Input) and pick the same driver in Settings, Audio
-Outputs (vMix matches the two by name). On the card, 2026-11-10, it asked
-for N = 1024 and ran 4.4 minutes without an event.
+Outputs (vMix matches the two by name). It picks its own buffer size,
+1024 samples (21.3 ms), whatever the driver offers: in every run on the
+card (2026-11-10 and 2026-11-11) it asked for 1024, and ran up to 4.4
+minutes at a time without an event. It has no ASIO settings button: the
+driver's settings open from the Start menu, **AJA Duplex ASIO Settings**
+("Settings", below), and vMix takes changed ones when it starts again,
+which is when it opens the driver.
 
 **Channels.** Inputs: "Analog L", "Analog R" (analog, the default), "AES
 1" to "AES 8" (AES), "SDI 1 ch 1" to "SDI 1 ch 16" (an SDI input's embedded
@@ -315,7 +333,8 @@ SDI path, cable SDI out 2 to SDI in 1, set SDI 2 as an output and SDI 1 as
 an input, pick input SDI 1 and output SDI 2: outputs 1-16 come back on
 inputs 1-16.
 
-**Buffer sizes** 64 to 2048 frames, powers of two; 128 is offered first.
+**Buffer sizes** 64 to 2048 samples, powers of two; 128 (2.7 ms) is
+offered first. Only an offer: a host picks the size (vMix, 1024).
 Changed in the settings, the new size is offered at once, even by the
 driver the host still has open, and the host is asked to reset: what runs
 keeps its size until the host makes the buffers again.
@@ -334,19 +353,20 @@ output exactly S after each block came in, also after a late block (it
 drops what came too late instead of moving the output, D1), so what is
 reported holds for the whole run. The card's shares are the driver's own
 figures for the KONA X with the Xpand, by input, all on the way out
-(hosts use the sum): 208 frames with the analog input, measured from XLR
-out to XLR in, and 130 with AES, where the card's AES inputs resample.
+(hosts use the sum): 208 samples (4.3 ms) with the analog input,
+measured from XLR out to XLR in, and 130 (2.7 ms) with AES, where the
+card's AES inputs resample.
 With an SDI or HDMI input they are 0: those paths have not been measured.
 `InputLatency` and `OutputLatency` in the settings replace them (below).
-At the defaults the driver reports 128 frames in and 592 out, 720 in
-all; the round trip of a start on the KONA X comes out at 718 to 727
-(six starts, 2026-11-11). It moves by a few frames from one start to the
-next and holds within a start: the card's two heads step 8 frames at a
-time, and how they stand to each other when they are started is not the
-same every time.
+At the defaults the driver reports 128 samples in (2.7 ms) and 592 out
+(12.3 ms), 720 in all (15.0 ms); the round trip of a start on the KONA X
+comes out at 718 to 727 (six starts, 2026-11-11). It moves by a few
+samples from one start to the next and holds within a start: the card's
+two heads step 8 samples at a time, and how they stand to each other when
+they are started is not the same every time.
 
 **Buffer and guard for a host that sometimes takes long.** A block's
-output must be written S frames after the block came in: whatever the
+output must be written S samples after the block came in: whatever the
 host's callback takes beyond that is a late output (the log says so, and
 how long the host took). The guard adds to S without touching the input,
 which stays N: so for a host whose callback now and then takes several
@@ -356,10 +376,10 @@ gives each block 8 ms (S = 384) with the input at 128, against 6 ms (S =
 288) and an input of 256 with N = 256 and G = 32. So set, it ran 4 h 48
 min without a dropout (its longest callback 7.3 ms), and so the driver is
 set by default since 0.1.13. The price is the round trip: N + S = 512
-frames, 10.7 ms before the card's own share. A host whose callback stays
+samples, 10.7 ms before the card's own share. A host whose callback stays
 well under a millisecond can take G down to what phase 0's loop found
 for the card (32 gives 6 ms); a heavier show than the test, up to 320.
-A late block loses what the card passed and G frames after it: with G at
+A late block loses what the card passed and G samples after it: with G at
 least N, as by default, the whole block, so a late output is a block of
 silence.
 
@@ -377,23 +397,23 @@ second, for good.
 
 **Measuring the round trip** on the card: loop XLR out L to XLR in L and
 run `duplex-asiotest --card`. It plays a -20 dBFS click on output 1 once a
-second (keep monitors off that output) and says how many frames it takes
-to come back against the latencies reported (with an embedded input there
-is no such loop, and it says so). On the KONA X it is 718 to 727 frames
-at the defaults, around the 720 the driver reports since 1.0.0: a few
-frames either way belong to that start, not to the card's share, and
-there is nothing to set. Should it come out further off (more than 16
-frames, two steps of the heads), on another card or through other
-converters, add the difference to `OutputLatency` (it is the sum with
-`InputLatency` that hosts use) and run it again: the target is within 1
-ms (48 frames). `card-session`'s step 7 does that. Phase 0's `loop
---path analog` measures the same thing in its "card, converters and
-cable" line.
-On the card every click must come back within two frames of the others
-(converters spread a click over a few frames, and which of them crosses
-the threshold first may differ by one); on the simulated card, in exactly
-the same frames. Ctrl+C, or closing its window, ends the run early: the
-driver is stopped and let go as after a whole run, so the card is put back.
+second (keep monitors off that output) and says how many samples it takes
+to come back ("frames", in its words) against the latencies reported (with
+an embedded input there is no such loop, and it says so). On the KONA X it
+is 718 to 727 samples at the defaults, around the 720 the driver reports
+since 1.0.0: a few samples either way belong to that start, not to the
+card's share, and there is nothing to set. Should it come out further off
+(more than 16 samples, two steps of the heads), on another card or through
+other converters, add the difference to `OutputLatency` (it is the sum
+with `InputLatency` that hosts use) and run it again: the target is within
+1 ms (48 samples). `card-session`'s step 7 does that. Phase 0's `loop
+--path analog` measures the same thing in its "card, converters and cable"
+line. On the card every click must come back within two samples of the
+others (converters spread a click over a few samples, and which of them
+crosses the threshold first may differ by one); on the simulated card, in
+exactly the same samples. Ctrl+C, or closing its window, ends the run
+early: the driver is stopped and let go as after a whole run, so the card
+is put back.
 
 ## Settings
 
@@ -414,7 +434,24 @@ once (the host is told and asks for them again), and so do Keep my routing
 and the analog level (set after the next block, without stopping); any
 other change makes the driver ask the host to reset, and the host opens it
 again with the new settings. A host that has
-not started the driver yet takes them the next time it opens it.
+not started the driver yet takes them the next time it opens it. The
+buffer sizes, the guard and the latencies are in samples, with what they
+are in milliseconds beside them.
+
+**For a host with no settings button** (vMix has none): **AJA Duplex ASIO
+Settings**, in the Start menu (since 1.0.1; `AJADuplexASIOSettings.exe`,
+beside the driver in Program Files), opens the same dialog without a
+host. It asks the installed driver for it the way a host does, through
+COM, and does not open the card, so it can be open beside a host that has
+the driver. Its "Now" box says so, and which program has the driver open,
+if one has ("Open now in vMix64.exe (process 8768)"). What it saves is
+for the next time a program opens the driver: one that has it open now
+takes it once it is closed and opened again, which for vMix is when it
+starts again. A second start brings the first one's dialog to the front.
+
+The settings are the same for every program: whichever dialog saved them
+last, a host's or this one, is what the next host to open the driver
+takes.
 
 They are kept in `HKEY_CURRENT_USER\Software\AJA Duplex ASIO`, as DWORD
 values, which can also be set by hand. A missing or out-of-range value
@@ -425,10 +462,10 @@ and reports its own latencies.
 | --- | --- | --- |
 | `Input` | 0 | 0 analog (XLR L/R), 1 AES 1-8, 2 an SDI input's embedded audio (16 channels), 3 the HDMI input's (8) |
 | `SdiInput` | 1 | for `Input` 2: which SDI input (the KONA X has 1 and 2) |
-| `BufferSize` | 128 | the size offered to hosts first: 64, 128, ..., 2048 |
-| `Guard` | 256 | G, in frames (up to 1024): what the output keeps ahead of the card beyond one block (see "Buffer and guard" above) |
+| `BufferSize` | 128 | the size offered to hosts first, in samples: 64, 128, ..., 2048 (a host may pick another: vMix always takes 1024) |
+| `Guard` | 256 | G, in samples (up to 1024): what the output keeps ahead of the card beyond one block (see "Buffer and guard" above) |
 | `Aggressive` | 0 | 1: S = N/2 + G instead of N + G, half a block less latency for hosts that use under half a block |
-| `InputLatency` | 0 | frames the card and converters add on the way in |
+| `InputLatency` | 0 | samples the card and converters add on the way in |
 | `OutputLatency` | by `Input`: 208 analog, 130 AES, 0 SDI or HDMI | the same on the way out. While no value is saved it is the card's own figure for the input; a saved one stands whatever the input (the dialog saves what its box shows) |
 | `KeepRouting` | 0 | 1: put the driver's routing back when another program changes it (checked once a second) |
 | `OemTaskMode` | 1 | 1: the card in OEM task mode while the driver plays (see "Other programs"); 0: as AJA's services have it. Up to 0.1.16 the value was `OemTasks`, off by default: an `OemTasks` saved then is not read |
@@ -438,11 +475,17 @@ and reports its own latencies.
 | `Card` | 0 | the AJA device, by index (`duplex-probe list`) |
 | `AudioSystem` | 0 | 1-based; 0 is the card's last (2 on the KONA X) |
 
-For example, from a command prompt:
+For example, from a command prompt (with no host that has the driver
+open, or one that is opened again afterwards):
 
 ```
 reg add "HKCU\Software\AJA Duplex ASIO" /v Input /t REG_DWORD /d 1 /f
+reg query "HKCU\Software\AJA Duplex ASIO"
+reg delete "HKCU\Software\AJA Duplex ASIO" /v Input /f
 ```
+
+The second shows what is saved; the third takes one value away, so that
+its default applies again.
 
 ## The log
 
@@ -482,10 +525,10 @@ look at, and what a report needs.**
 ## DMAs
 
 Each ring of the card's audio system has 4 MB and wraps at 4,177,920 bytes
-(65,280 frames of 16 channels, 1.36 s): the 16 KB past the wrap are never
-played or filled. The driver moves one block each way per cycle, each DMA
-from the start of a buffer of its own, none of them locked (on the KONA X
-a locked buffer was no faster).
+(65,280 samples of each of 16 channels, 1.36 s): the 16 KB past the wrap
+are never played or filled. The driver moves one block each way per cycle,
+each DMA from the start of a buffer of its own, none of them locked (on
+the KONA X a locked buffer was no faster).
 
 - A block across the ring's end goes in one DMA from where it starts,
   running on past the end into those 16 KB, and what wraps goes again at
@@ -496,7 +539,7 @@ a locked buffer was no faster).
   4096 bytes, fails from some buffers wherever in the ring it goes, and
   that one of 4096 bytes or more goes through from the same buffers. With
   the block whole, the driver's DMAs at its default buffer and guard are
-  of a page or more, what wraps included (some 88 frames), all but what
+  of a page or more, what wraps included (some 88 samples), all but what
   is left of a block that came late.)
 - A DMA that fails is tried again at once from the same buffer (a passing
   fault goes through then) and, if that fails too, from one of four spare
@@ -524,7 +567,7 @@ a locked buffer was no faster).
 Through the host's asioMessage callback, when the host takes the message:
 
 - a late output (the host or the PC took too long): `kAsioOverload`. The
-  frames that came too late are lost; the latency stays the same;
+  samples that came too late are lost; the latency stays the same;
 - an input overrun (more than half a ring behind, the host hung for over
   0.7 s): `kAsioOverload` and `kAsioResyncRequest`; the sample position
   jumps by what was skipped;
@@ -540,12 +583,12 @@ Through the host's asioMessage callback, when the host takes the message:
 The two heads of an audio system run on one clock, and the driver places
 its output by the input's timing. When they do not run together, the
 output is where the driver was not told. Far apart (more than 1024
-frames: the output stopped and started by another program), the output is
+samples: the output stopped and started by another program), the output is
 placed anew at once. Less than that, it was left where it was up to
 0.1.20, and if that was behind the card's playback head, every block from
 then on came out late and was dropped: on the KONA X (2026-11-11), while
 the AJA Control Panel changed the input's source in standard task mode,
-the capture side lost some two seconds of frames in the 22 its source was
+the capture side lost some two seconds of audio in the 22 its source was
 not the card's own, and 39848 of 44161 blocks were late. Since 0.1.21, a
 quarter of a second of blocks late by more than their own time accounts
 for is the output out of step, and it is placed anew ("output moved" in
@@ -558,7 +601,7 @@ clock is the video input's.
 ## Not there yet
 
 - An offset between the two heads that makes no block late is left as it
-  is: the round trip is then off the reported one by up to 1024 frames
+  is: the round trip is then off the reported one by up to 1024 samples
   until the next start. The log's "the output within ... frames of the
   input's timing" shows it. Placing the output anew for any offset that
   stays is to come with the tests of the embedded inputs, which say what
@@ -573,8 +616,8 @@ clock is the video input's.
   the card is back in standard mode.
 - An installer: `install-driver.cmd` copies the driver to Program Files
   and registers it, but nothing lists it among Windows' installed apps,
-  and the DLL carries no version resource (the driver's settings panel and
-  the log's `init` line say the version; `duplex-asiotest --installed`,
+  and the DLL carries no version resource (the driver's settings dialog
+  and the log's `init` line say the version; `duplex-asiotest --installed`,
   whether hosts load this build).
 - The card's clock in the log reads +0.0 ppm on the KONA X: the engine's
   model dates the head only from readings close together, and with
@@ -586,9 +629,9 @@ clock is the video input's.
   video, and how late it comes out through embedding: Q17. Until it is
   measured, an SDI loop's round trip says (with `InputLatency`).
 - The round trip moves from one start to the next by up to a step of
-  each of the card's heads. On the KONA X, whose heads step 8 frames,
-  six starts came out at 718 to 727 frames with 720 reported; the
-  simulated output moves in 16-frame steps. The stop line's "the output
+  each of the card's heads. On the KONA X, whose heads step 8 samples,
+  six starts came out at 718 to 727 samples with 720 reported; the
+  simulated output moves in 16-sample steps. The stop line's "the output
   within ... frames of the input's timing" shows where a start fell.
   Placing the output against a step, so that every start comes out the
   same, is not done.

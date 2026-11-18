@@ -3,6 +3,8 @@
 
 #include "ui/SettingsDialog.h"
 
+#include "common/TextFormat.h"
+
 #include <shellapi.h>
 
 #include <atomic>
@@ -36,6 +38,12 @@ void bringToFront(HWND window)
     if (IsIconic(window))
         ShowWindow(window, SW_RESTORE);
     SetForegroundWindow(window);
+}
+
+/// ASCII text, as the dialog's controls take it.
+std::wstring wide(const std::string& text)
+{
+    return std::wstring(text.begin(), text.end());
 }
 
 /// The analog level combo's choices, in order: 0 is "as the card has it".
@@ -127,15 +135,19 @@ DialogTemplate buildTemplate(const DialogContent& content)
 
     t.add(kStatic, L"Analog level: 0 dBFS at", -1, 7, 48, 110, 10, label);
     t.add(kComboBox, nullptr, kAnalogLevelCombo, 120, 46, 76, 80, list);
-    t.add(kStatic, L"the Xpand's, for the whole card", -1, 200, 48, 74, 18, label);
+    // Two lines high, no more: the note under it starts where it ends.
+    // Static texts that overlap paint over each other.
+    t.add(kStatic, L"the Xpand's, for the whole card", -1, 200, 48, 74, 16, label);
 
+    // In samples, with what they are in milliseconds. Only an offer: a host
+    // picks its own size (vMix always asks for 1024).
     t.add(kStatic, L"Buffer size offered first", -1, 7, 66, 110, 10, label);
-    t.add(kComboBox, nullptr, kBufferCombo, 120, 64, 56, 100, list);
-    t.add(kStatic, L"frames", -1, 180, 66, 60, 10, label);
+    t.add(kComboBox, nullptr, kBufferCombo, 120, 64, 100, 100, list);
+    t.add(kStatic, L"a host may pick another", -1, 224, 64, 50, 17, label);
 
     t.add(kStatic, L"Guard (G)", -1, 7, 84, 110, 10, label);
     t.add(kEdit, nullptr, kGuardEdit, 120, 82, 40, 12, number);
-    t.add(kStatic, L"frames (0-1024) the output keeps ahead beyond a block", -1, 164, 81, 110, 18, label);
+    t.add(kStatic, nullptr, kGuardText, 164, 81, 110, 18, label);
 
     t.add(kButton, L"Aggressive: S = N/2 + G instead of N + G, half a block less latency, for hosts that use under "
                    L"half a block",
@@ -151,16 +163,16 @@ DialogTemplate buildTemplate(const DialogContent& content)
     t.add(kEdit, nullptr, kInputLatencyEdit, 120, 168, 40, 12, number);
     t.add(kStatic, L"out", -1, 166, 170, 14, 10, label);
     t.add(kEdit, nullptr, kOutputLatencyEdit, 182, 168, 40, 12, number);
-    t.add(kStatic, L"frames", -1, 226, 170, 40, 10, label);
-    t.add(kStatic, nullptr, kLatencyNote, 7, 184, 266, 18, label);
+    t.add(kStatic, L"samples", -1, 226, 170, 40, 10, label);
+    t.add(kStatic, nullptr, kLatencyNote, 7, 184, 266, 26, label);
 
-    t.add(kStatic, L"Card (device index)", -1, 7, 208, 110, 10, label);
-    t.add(kEdit, nullptr, kCardEdit, 120, 206, 24, 12, number);
-    t.add(kStatic, L"Audio system", -1, 152, 208, 46, 10, label);
-    t.add(kComboBox, nullptr, kAudioSystemCombo, 198, 206, 74, 60, list);
+    t.add(kStatic, L"Card (device index)", -1, 7, 216, 110, 10, label);
+    t.add(kEdit, nullptr, kCardEdit, 120, 214, 24, 12, number);
+    t.add(kStatic, L"Audio system", -1, 152, 216, 46, 10, label);
+    t.add(kComboBox, nullptr, kAudioSystemCombo, 198, 214, 74, 60, list);
 
-    t.add(kStatic, L"Now", -1, 7, 226, 110, 10, label);
-    t.add(kEdit, nullptr, kStatusEdit, 7, 236, 266, 64,
+    t.add(kStatic, L"Now", -1, 7, 234, 110, 10, label);
+    t.add(kEdit, nullptr, kStatusEdit, 7, 244, 266, 56,
           ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | WS_VSCROLL | WS_BORDER);
 
     t.add(kButton, L"Open log folder", kOpenLogButton, 7, 306, 70, 14, BS_PUSHBUTTON | WS_TABSTOP);
@@ -234,6 +246,18 @@ void followInput(HWND dialog)
     }
 }
 
+/// The text beside the guard box: what it holds, in milliseconds, and what
+/// it is.
+void showGuard(HWND dialog)
+{
+    BOOL ok = FALSE;
+    const UINT shown = GetDlgItemInt(dialog, kGuardEdit, &ok, FALSE);
+    const std::wstring range = ok && shown <= DriverSettings::kMaxGuardFrames
+                                   ? L"samples (" + wide(text::milliseconds(shown)) + L")"
+                                   : std::wstring(L"samples, 0 to 1024,");
+    SetDlgItemTextW(dialog, kGuardText, (range + L" kept ahead beyond a block").c_str());
+}
+
 void fill(HWND dialog, const DialogContent& content)
 {
     const DriverSettings& s = content.settings;
@@ -274,14 +298,16 @@ void fill(HWND dialog, const DialogContent& content)
     int buffer = 0;
     for (int i = 0; i < kBufferChoices; ++i)
     {
-        const unsigned frames = DriverSettings::kMinBufferFrames << i;
-        addItem(dialog, kBufferCombo, std::to_wstring(frames).c_str());
-        if (frames == s.bufferFrames)
+        const unsigned size = DriverSettings::kMinBufferFrames << i;
+        addItem(dialog, kBufferCombo,
+                (std::to_wstring(size) + L" samples (" + wide(text::milliseconds(size)) + L")").c_str());
+        if (size == s.bufferFrames)
             buffer = i;
     }
     select(dialog, kBufferCombo, buffer);
 
     SetDlgItemInt(dialog, kGuardEdit, s.guardFrames, FALSE);
+    showGuard(dialog);
     CheckDlgButton(dialog, kAggressiveCheck, s.aggressive ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(dialog, kKeepRoutingCheck, s.keepRouting ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(dialog, kOemTasksCheck, s.oemTasks ? BST_CHECKED : BST_UNCHECKED);
@@ -296,8 +322,9 @@ void fill(HWND dialog, const DialogContent& content)
     else
     {
         SetDlgItemTextW(dialog, kLatencyNote,
-                        L"What the card and its converters add. The driver's own: 208 out with the analog input, "
-                        L"130 with AES, 0 with SDI or HDMI (not measured).");
+                        L"What the card and its converters add, in samples (48 are 1 ms). The driver's own: 208 out "
+                        L"with the analog input (4.3 ms), 130 with AES (2.7 ms), 0 with SDI or HDMI (not "
+                        L"measured).");
     }
 
     SetDlgItemInt(dialog, kCardEdit, s.card, FALSE);
@@ -399,6 +426,11 @@ INT_PTR CALLBACK dialogProc(HWND dialog, UINT message, WPARAM wParam, LPARAM lPa
             if (!content->latenciesFromCard)
                 followInput(dialog);
             return TRUE;
+        case kGuardEdit:
+            if (HIWORD(wParam) != EN_CHANGE)
+                return FALSE;
+            showGuard(dialog);
+            return TRUE;
         default:
             return FALSE;
     }
@@ -426,7 +458,7 @@ bool readSettingsDialog(HWND dialog, DriverSettings& settings, std::wstring& err
         s.bufferFrames = DriverSettings::kMinBufferFrames << buffer;
     if (!readNumber(dialog, kGuardEdit, DriverSettings::kMaxGuardFrames, s.guardFrames))
     {
-        error = L"The guard is a number of frames from 0 to 1024.";
+        error = L"The guard is a number of samples from 0 to 1024.";
         return false;
     }
     s.aggressive = IsDlgButtonChecked(dialog, kAggressiveCheck) == BST_CHECKED;
@@ -435,7 +467,7 @@ bool readSettingsDialog(HWND dialog, DriverSettings& settings, std::wstring& err
     if (!readNumber(dialog, kInputLatencyEdit, DriverSettings::kMaxLatencyFrames, s.inputLatencyFrames) ||
         !readNumber(dialog, kOutputLatencyEdit, DriverSettings::kMaxLatencyFrames, s.outputLatencyFrames))
     {
-        error = L"The card's latencies are numbers of frames from 0 to 48000.";
+        error = L"The card's latencies are numbers of samples from 0 to 48000 (a second).";
         return false;
     }
     if (!readNumber(dialog, kCardEdit, 15, s.card))

@@ -19,8 +19,8 @@
     are missing.
 
     What it leaves:
-        build\Release\AJADuplexASIO.dll, duplex-asiotest.exe,
-            duplex-probe.exe and duplex-tests.exe
+        build\Release\AJADuplexASIO.dll, AJADuplexASIOSettings.exe,
+            duplex-asiotest.exe, duplex-probe.exe and duplex-tests.exe
         dist\AJA-Duplex-ASIO-<version>-win64.zip  (all but the tests, the
             install scripts, card-session.cmd, CARD_SESSION.md, DRIVER.md,
             PROBE.md, licences)
@@ -382,6 +382,9 @@ function New-Package([string[]]$Programs, [string]$Version) {
         '                         afterwards. Run it again, every host closed, to',
         '                         update the driver',
         '  uninstall-driver.cmd   the same, to take it away',
+        "  AJADuplexASIOSettings  the driver's settings, for hosts with no ASIO settings",
+        '                         button (vMix): install-driver.cmd puts it in the',
+        '                         Start menu as AJA Duplex ASIO Settings',
         '  duplex-asiotest        tries the driver as a host would; without options',
         '                         on a simulated card inside the DLL, which no host',
         '                         lists, so it needs no card at all',
@@ -548,7 +551,8 @@ $probe    = Join-Path $outDir 'duplex-probe.exe'
 $tests    = Join-Path $outDir 'duplex-tests.exe'
 $driver   = Join-Path $outDir 'AJADuplexASIO.dll'
 $asioTest = Join-Path $outDir 'duplex-asiotest.exe'
-foreach ($file in @($probe, $driver, $asioTest)) {
+$settings = Join-Path $outDir 'AJADuplexASIOSettings.exe'
+foreach ($file in @($probe, $driver, $asioTest, $settings)) {
     if (-not (Test-Path $file)) { Fail "The build finished but $file is not there." }
 }
 
@@ -571,7 +575,7 @@ if (-not $SkipTests) {
 $zipPath = ''
 if (-not $NoPackage) {
     Write-Step 'Packing the driver and the probe for the PC with the card'
-    $zipPath = New-Package @($driver, $asioTest, $probe) $ProjectVersion
+    $zipPath = New-Package @($driver, $settings, $asioTest, $probe) $ProjectVersion
     Write-Line "  $zipPath"
 }
 
@@ -581,7 +585,7 @@ if (-not $NoPackage) {
 Write-Line ''
 Write-Line ("OK  AJA Duplex ASIO $ProjectVersion ($Config)" +
             "$(if (-not $SkipTests) { ', unit tests and the driver test passed' })") 'Green'
-foreach ($file in @($driver, $asioTest, $probe)) {
+foreach ($file in @($driver, $settings, $asioTest, $probe)) {
     $info = Get-Item $file
     Write-Line ("    {0}  {1:N0} bytes" -f $info.FullName, $info.Length)
 }

@@ -31,6 +31,51 @@ TEST_CASE(InstanceLock, SecondHolderIsRefusedAndToldWho)
     EXPECT_TRUE(second.acquire(9, 2, holder));
 }
 
+TEST_CASE(InstanceLock, SaysWhoHoldsItWithoutTakingIt)
+{
+    std::string holder;
+    EXPECT_FALSE(InstanceLock::heldBy(9, 4, holder));
+    InstanceLock lock;
+    ASSERT_TRUE(lock.acquire(9, 4, holder));
+    holder.clear();
+    ASSERT_TRUE(InstanceLock::heldBy(9, 4, holder));
+    EXPECT_CONTAINS(holder, "duplex-tests");
+    EXPECT_CONTAINS(holder, "(process ");
+    EXPECT_FALSE(InstanceLock::heldBy(9, 5, holder));   // another audio system
+    // Asking took nothing: once let go, it is free.
+    lock.release();
+    EXPECT_FALSE(InstanceLock::heldBy(9, 4, holder));
+    InstanceLock next;
+    EXPECT_TRUE(next.acquire(9, 4, holder));
+}
+
+TEST_CASE(InstanceLock, HeldByAProgramThatCannotBeAsked)
+{
+    // A host run with other rights (as administrator, say) makes a lock that
+    // this program may not open: an empty access list stands in for that.
+    SECURITY_DESCRIPTOR descriptor;
+    ASSERT_TRUE(InitializeSecurityDescriptor(&descriptor, SECURITY_DESCRIPTOR_REVISION) != FALSE);
+    ACL nobody;
+    ASSERT_TRUE(InitializeAcl(&nobody, sizeof(nobody), ACL_REVISION) != FALSE);
+    ASSERT_TRUE(SetSecurityDescriptorDacl(&descriptor, TRUE, &nobody, FALSE) != FALSE);
+    SECURITY_ATTRIBUTES attributes{sizeof(attributes), &descriptor, FALSE};
+    const wchar_t* name = L"Local\\AJADuplexASIO-card9-as6";
+    HANDLE theirs = CreateMutexW(&attributes, FALSE, name);
+    ASSERT_TRUE(theirs != nullptr);
+    HANDLE tried = OpenMutexW(SYNCHRONIZE, FALSE, name);
+    if (tried == nullptr)
+    {
+        std::string holder;
+        EXPECT_TRUE(InstanceLock::heldBy(9, 6, holder));
+        EXPECT_EQ(holder, std::string("another program"));
+    }
+    else
+    {
+        CloseHandle(tried);   // a system that does not check the list: nothing to see here
+    }
+    CloseHandle(theirs);
+}
+
 TEST_CASE(InstanceLock, GoesWithTheObject)
 {
     std::string holder;

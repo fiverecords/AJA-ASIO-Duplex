@@ -35,6 +35,12 @@ public:
     bool acquire(unsigned card, unsigned audioSystem, std::string& holder);
     void release();
 
+    /// Whether a program holds (card, audioSystem) now, with `holder`
+    /// naming it: what acquire would refuse with, without taking it. For
+    /// the settings opened outside a host (AJADuplexASIOSettings.exe), to
+    /// say which program takes them only when it opens the driver again.
+    static bool heldBy(unsigned card, unsigned audioSystem, std::string& holder);
+
 private:
     HANDLE mutex_ = nullptr;
     HANDLE owner_ = nullptr;

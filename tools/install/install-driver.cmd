@@ -13,6 +13,9 @@ rem Registering also takes away the second driver that versions up to 0.1.19
 rem registered for trying the driver without the card ("AJA Duplex
 rem Simulator", and "AJA Duplex ASIO (simulated)" up to 0.1.16, with which
 rem vMix left the card's driver out of its inputs).
+rem Since 1.0.1 it also copies AJADuplexASIOSettings.exe beside the driver
+rem and puts it in every user's Start menu as "AJA Duplex ASIO Settings":
+rem the driver's settings, for hosts with no ASIO settings button (vMix).
 rem Needs an administrator prompt: right-click, Run as administrator.
 rem It runs next to the DLL, in the folder of the ZIP that build.cmd makes
 rem (dist\AJA-Duplex-ASIO-*-win64); the copy in the source tree has no DLL
@@ -25,10 +28,12 @@ net session >nul 2>&1
 if errorlevel 1 goto notadmin
 
 set "source=%~dp0AJADuplexASIO.dll"
+set "settingsSource=%~dp0AJADuplexASIOSettings.exe"
 set "folder=%ProgramW6432%"
 if not defined folder set "folder=%ProgramFiles%"
 set "folder=%folder%\AJA Duplex ASIO"
 set "target=%folder%\AJADuplexASIO.dll"
+set "settings=%folder%\AJADuplexASIOSettings.exe"
 
 if not exist "%source%" goto nodll
 rem Run from the installed folder itself: nothing to copy.
@@ -49,13 +54,27 @@ if exist "%~dp0LICENSE.txt" copy /y "%~dp0LICENSE.txt" "%folder%\LICENSE.txt" >n
 if exist "%~dp0THIRD_PARTY_NOTICES.md" copy /y "%~dp0THIRD_PARTY_NOTICES.md" "%folder%\THIRD_PARTY_NOTICES.md" >nul 2>&1
 
 :register
+rem The settings program goes beside the driver. Not copied only when it is
+rem open, and then it has the driver open too, and the copy above stopped.
+if exist "%settingsSource%" if /i not "%settingsSource%"=="%settings%" copy /y /b "%settingsSource%" "%settings%" >nul 2>&1
 regsvr32 /s "%target%"
 set "code=%errorlevel%"
 if not "%code%"=="0" goto failed
+set "menu=none"
+if not exist "%settings%" goto told
+set "menu=failed"
+"%settings%" --add-shortcut
+if not errorlevel 1 set "menu=made"
+
+:told
 echo AJA Duplex ASIO is installed in %folder%
 echo Hosts list "AJA Duplex ASIO" and load it from there: this folder can be
 echo moved, replaced or deleted. To update the driver, close every host and run
 echo the new version's install-driver.cmd; to take it away, uninstall-driver.cmd.
+if "%menu%"=="made" echo For a host with no ASIO settings button, such as vMix, the driver's settings
+if "%menu%"=="made" echo are in the Start menu: AJA Duplex ASIO Settings.
+if "%menu%"=="failed" echo The Start menu entry for the settings could not be made: they open with
+if "%menu%"=="failed" echo %settings%
 pause
 exit /b 0
 
@@ -78,9 +97,9 @@ exit /b 1
 
 :nocopy
 echo The driver could not be copied to %folder%
-echo A host has the installed driver open (Resolume, vMix, a DAW): close every
-echo host and run install-driver.cmd again. The driver installed before is
-echo still there, as it was.
+echo A host has the installed driver open (Resolume, vMix, a DAW), or AJA Duplex
+echo ASIO Settings is open: close them all and run install-driver.cmd again. The
+echo driver installed before is still there, as it was.
 pause
 exit /b 1
 

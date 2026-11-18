@@ -37,35 +37,45 @@ std::wstring thisProgram()
     return name + L" (process " + std::to_wstring(GetCurrentProcessId()) + L")";
 }
 
+std::wstring lockName(unsigned card, unsigned audioSystem)
+{
+    return L"Local\\AJADuplexASIO-card" + std::to_wstring(card) + L"-as" + std::to_wstring(audioSystem);
+}
+
+/// Who the holder of the lock named `base` said it is.
+std::string readHolder(const std::wstring& base)
+{
+    std::string holder = "another program";
+    HANDLE owner = OpenFileMappingW(FILE_MAP_READ, FALSE, (base + L"-owner").c_str());
+    if (owner == nullptr)
+        return holder;
+    const void* view = MapViewOfFile(owner, FILE_MAP_READ, 0, 0, kOwnerBytes);
+    if (view != nullptr)
+    {
+        const wchar_t* text = static_cast<const wchar_t*>(view);
+        std::size_t n = 0;
+        while (n < kOwnerBytes / sizeof(wchar_t) - 1 && text[n] != L'\0')
+            ++n;
+        if (n > 0)
+            holder = narrow(std::wstring(text, n));
+        UnmapViewOfFile(view);
+    }
+    CloseHandle(owner);
+    return holder;
+}
+
 } // namespace
 
 bool InstanceLock::acquire(unsigned card, unsigned audioSystem, std::string& holder)
 {
     release();
-    const std::wstring base = L"Local\\AJADuplexASIO-card" + std::to_wstring(card) + L"-as" +
-                              std::to_wstring(audioSystem);
+    const std::wstring base = lockName(card, audioSystem);
     HANDLE mutex = CreateMutexW(nullptr, FALSE, base.c_str());
     if (mutex == nullptr)
         return true;   // no lock to be had: let the card's own checks decide
     if (GetLastError() == ERROR_ALREADY_EXISTS)
     {
-        holder = "another program";
-        HANDLE owner = OpenFileMappingW(FILE_MAP_READ, FALSE, (base + L"-owner").c_str());
-        if (owner != nullptr)
-        {
-            const void* view = MapViewOfFile(owner, FILE_MAP_READ, 0, 0, kOwnerBytes);
-            if (view != nullptr)
-            {
-                const wchar_t* text = static_cast<const wchar_t*>(view);
-                std::size_t n = 0;
-                while (n < kOwnerBytes / sizeof(wchar_t) - 1 && text[n] != L'\0')
-                    ++n;
-                if (n > 0)
-                    holder = narrow(std::wstring(text, n));
-                UnmapViewOfFile(view);
-            }
-            CloseHandle(owner);
-        }
+        holder = readHolder(base);
         CloseHandle(mutex);
         return false;
     }
@@ -86,6 +96,26 @@ bool InstanceLock::acquire(unsigned card, unsigned audioSystem, std::string& hol
             UnmapViewOfFile(view);
         }
     }
+    return true;
+}
+
+bool InstanceLock::heldBy(unsigned card, unsigned audioSystem, std::string& holder)
+{
+    const std::wstring base = lockName(card, audioSystem);
+    // Opened, never created: asking must not make the lock exist.
+    HANDLE mutex = OpenMutexW(SYNCHRONIZE, FALSE, base.c_str());
+    if (mutex == nullptr)
+    {
+        // There, but not to be opened from here: a program running with
+        // other rights has it (a host run as administrator, say). Who it
+        // is may not be readable either.
+        if (GetLastError() != ERROR_ACCESS_DENIED)
+            return false;
+        holder = readHolder(base);
+        return true;
+    }
+    holder = readHolder(base);
+    CloseHandle(mutex);
     return true;
 }
 

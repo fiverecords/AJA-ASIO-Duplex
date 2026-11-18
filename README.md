@@ -25,11 +25,11 @@ With AJA's own Windows software today:
   embedded in an SDI input (16 channels) or in the HDMI input (8).
 - **Outputs:** AES 1-8, with the Xpand's analog output on 1-2; if asked,
   the SDI outputs too (16 channels) and the HDMI output (8).
-- **Buffers** of 64 to 2048 frames at 48 kHz, 128 by default. The
-  latencies it reports to the host include what the card and its
-  converters add (measured on the KONA X: 208 frames through the analog
-  path, about 130 through AES), so recordings line up with nothing to
-  set.
+- **Buffers** of 64 to 2048 samples at 48 kHz, 128 (2.7 ms) by default.
+  The latencies it reports to the host include what the card and its
+  converters add (measured on the KONA X: 208 samples, 4.3 ms, through
+  the analog path, about 130 through AES), so recordings line up with
+  nothing to set.
 - **Beside other programs on the card:** it takes one audio system (the
   KONA X's second, which AJA's own drivers leave free) and puts everything
   back when the host lets it go. It was written to run in Resolume next
@@ -37,9 +37,11 @@ With AJA's own Windows software today:
   capturing video on the same card. It reads its routing back once a
   second and says when another program changes it; and after a host that
   crashed, the next one takes the card over without a restart of the PC.
-- A settings dialog (the host's "ASIO settings" button), a log of what it
-  does, and two console tools: `duplex-asiotest`, a small host that checks
-  the driver, and `duplex-probe`, which measures the card.
+- A settings dialog: the host's "ASIO settings" button opens it, and for
+  a host that has none, such as vMix, **AJA Duplex ASIO Settings** in the
+  Start menu. A log of what it does, and two console tools:
+  `duplex-asiotest`, a small host that checks the driver, and
+  `duplex-probe`, which measures the card.
 
 It is a user-mode DLL that the host loads into its own process. It talks
 to AJA's kernel driver through libajantv2, the way any SDK program does:
@@ -50,23 +52,26 @@ kernel code.
 
 ## Where it stands
 
-Version 1.0.0 (2026-11-11), the first one published. What follows was
-run on one KONA X with the Xpand (AJA's driver 18.0.0.29, firmware
-revision 8) on Windows 11, with this version and the ones that led to
-it:
+Version 1.0.1 (2026-11-18). 1.0.0 (2026-11-11) was the first one
+published; 1.0.1 adds the settings for hosts with no settings button and
+speaks of samples where it said frames, and plays as 1.0.0 does. What
+follows was run on one KONA X with the Xpand (AJA's driver 18.0.0.29,
+firmware revision 8) on Windows 11, with 1.0.0 and the versions that led
+to it:
 
-- The audio engine under the driver ran an hour at a 128-frame buffer
+- The audio engine under the driver ran an hour at a 128-sample buffer
   without a lost block, a DMA error or a glitch, AES out looped to AES in
   and XLR out looped to XLR in.
 - The driver ran in Resolume Arena with the AJA Input plugin open on the
   same card, ten minutes without a late output, and played and recorded
-  in vMix for a few minutes. Hours in a host are still to be run.
-- Round trip at the defaults, XLR out to XLR in: 720 frames, 15.0 ms (a
-  128-frame buffer and a 256-frame output guard, which gives a host's
-  callback 8 ms, and 208 frames of the card and its converters). That is
-  what the driver reports; a start comes out within 7 frames of it. A
+  in vMix; 1.0.0 has since worked there for several hours.
+- Round trip at the defaults, XLR out to XLR in: 720 samples, 15.0 ms (a
+  128-sample buffer and a 256-sample output guard, which gives a host's
+  callback 8 ms, and 208 samples of the card and its converters). That is
+  what the driver reports; a start comes out within 7 samples of it. A
   host with short callbacks can take the guard down: 32 gives about 10.3
-  ms.
+  ms. vMix picks its own buffer, 1024 samples (21.3 ms), whatever the
+  driver offers.
 - After a program playing through the card was ended by force, the next
   one took the card over with no restart of the PC, and left it as it
   was before.
@@ -88,8 +93,14 @@ what is left; [CHANGELOG.md](CHANGELOG.md), what each version changed.
    build it (below), and unzip it anywhere.
 3. With every host closed, right-click `install-driver.cmd`, **Run as
    administrator**. It copies the driver to
-   `C:\Program Files\AJA Duplex ASIO` and registers it there.
+   `C:\Program Files\AJA Duplex ASIO` and registers it there, and adds
+   **AJA Duplex ASIO Settings** to the Start menu.
 4. Pick **AJA Duplex ASIO** as the audio device in the host.
+5. Its settings (the input, the outputs, the buffer offered, the analog
+   level...) open with the host's "ASIO settings" button. In a host with
+   no such button, such as vMix, open **AJA Duplex ASIO Settings** from
+   the Start menu: it shows the same settings, and a host that has the
+   driver open takes the new ones when it is opened again.
 
 Run the new version's `install-driver.cmd` to update it, and
 `uninstall-driver.cmd` to take it away. Settings, channels, latencies,
@@ -112,8 +123,10 @@ or, without git, as a ZIP from GitHub:
 It builds the Release version, runs the unit tests and the driver on a
 simulated card, and leaves:
 
-- `build\Release\AJADuplexASIO.dll` (the driver), `duplex-asiotest.exe`,
-  `duplex-probe.exe` and `duplex-tests.exe`;
+- `build\Release\AJADuplexASIO.dll` (the driver),
+  `AJADuplexASIOSettings.exe` (its settings, for hosts with no settings
+  button), `duplex-asiotest.exe`, `duplex-probe.exe` and
+  `duplex-tests.exe`;
 - `dist\AJA-Duplex-ASIO-<version>-win64.zip`: all but the tests, with the
   install scripts, `card-session.cmd` and the documents, for the PC with
   the KONA X, which needs nothing installed but AJA's driver;

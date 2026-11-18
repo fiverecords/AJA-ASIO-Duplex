@@ -8,10 +8,11 @@
 #  outputs run in one driver, on the card's clock, with a selectable buffer
 #  size. It does not replace AJA's driver: it uses it, like any SDK program.
 #
-#  This tree builds the driver (AJADuplexASIO.dll), a small host that tries
-#  it (duplex-asiotest), the measurement tool duplex-probe, the simulated
-#  card all three can run against, and the unit tests. See README.md and
-#  docs/ROADMAP.md.
+#  This tree builds the driver (AJADuplexASIO.dll), its settings for hosts
+#  with no settings button (AJADuplexASIOSettings.exe), a small host that
+#  tries it (duplex-asiotest), the measurement tool duplex-probe, the
+#  simulated card they can run against, and the unit tests. See README.md
+#  and docs/ROADMAP.md.
 #
 #  Requirements:
 #    - CMake 3.15 or newer
@@ -23,7 +24,7 @@
 cmake_minimum_required(VERSION 3.15)
 
 project(AJADuplexASIO
-    VERSION 1.0.0
+    VERSION 1.0.1
     DESCRIPTION "Full-duplex ASIO driver for AJA cards"
     HOMEPAGE_URL "https://github.com/fiverecords/AJA-ASIO-Duplex"
     LANGUAGES CXX
@@ -32,7 +33,7 @@ project(AJADuplexASIO
 # The date of this version (the one CHANGELOG.md gives it) and whose the
 # project is: with the address above, what the driver's settings dialog
 # shows (src/common/DuplexVersion.h.in).
-set(AJADUPLEX_RELEASE_DATE "2026-11-11")
+set(AJADUPLEX_RELEASE_DATE "2026-11-18")
 set(AJADUPLEX_AUTHOR "fiverecords")
 
 set(CMAKE_CXX_STANDARD 17)
@@ -228,7 +229,8 @@ target_link_libraries(duplex_asio
     PRIVATE duplex_settings)
 
 # -----------------------------------------------------------------------------
-# AJADuplexASIO.dll: the driver (Windows), and duplex-asiotest, a small host
+# AJADuplexASIO.dll: the driver (Windows); AJADuplexASIOSettings.exe, its
+# settings outside a host; and duplex-asiotest, a small host
 # -----------------------------------------------------------------------------
 if(WIN32)
     add_library(AJADuplexASIO SHARED
@@ -259,6 +261,22 @@ if(WIN32)
     target_link_libraries(duplex-asiotest PRIVATE duplex_settings ole32 uuid advapi32)   # the registry, for --installed
     if(MINGW)
         target_link_options(duplex-asiotest PRIVATE -municode)
+    endif()
+
+    # The driver's own settings dialog, asked of the installed driver the way
+    # a host asks, for hosts with no settings button (vMix); and the Start
+    # menu's entry for it, which install-driver.cmd makes.
+    add_executable(AJADuplexASIOSettings WIN32 tools/settings/main.cpp)
+    if(MSVC)
+        # Version 6 of the common controls (merged into the manifest the
+        # linker makes); MinGW builds go without.
+        target_sources(AJADuplexASIOSettings PRIVATE tools/settings/AJADuplexASIOSettings.manifest)
+    endif()
+    target_include_directories(AJADuplexASIOSettings PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_include_directories(AJADuplexASIOSettings SYSTEM PRIVATE ${ASIOSDK_DIR})
+    target_link_libraries(AJADuplexASIOSettings PRIVATE duplex_settings ole32 uuid shell32 comctl32 user32)
+    if(MINGW)
+        target_link_options(AJADuplexASIOSettings PRIVATE -municode)
     endif()
 endif()
 
